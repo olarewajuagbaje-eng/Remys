@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Remy's Consulting × TechSoup — Integration Architecture Proposal</title>
+<style>
+  :root{
+    --bg:#FAFAF8;
+    --bg-alt:#F1F0EA;
+    --ink:#1A2226;
+    --ink-soft:#4B565C;
+    --ink-faint:#7C858A;
+    --line:#DDDBD1;
+    --line-strong:#C6C3B6;
+    --teal:#2B6E64;
+    --teal-dark:#1D4E47;
+    --teal-bg:#EAF2F0;
+    --amber:#A5701F;
+    --amber-bg:#FBF1DE;
+    --green:#3E7D52;
+    --green-bg:#EBF4EC;
+    --slate:#5B6672;
+    --slate-bg:#EDEEEA;
+    --card:#FFFFFF;
+    --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --radius-card: 3px;
+    --radius-pill: 999px;
+    --shadow-soft: 0 1px 2px rgba(26,34,38,0.06), 0 1px 1px rgba(26,34,38,0.04);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{
+    font-family:var(--serif);
+    font-weight:600;
+    color:var(--ink);
+    line-height:1.2;
+    margin:0 0 0.5em 0;
+  }
+  p{ margin:0 0 1em 0; max-width:62ch; color:var(--ink-soft); }
+  .max-w{ max-width:66ch; }
+  a{ color:var(--teal-dark); }
+  button{ font-family:inherit; }
+  ::selection{ background:var(--teal); color:#fff; }
+
+  /* ---------- progress + nav ---------- */
+  #progress{
+    position:fixed; top:0; left:0; height:3px; background:var(--teal);
+    width:0%; z-index:1000; transition:width .1s linear;
+  }
+  header.topnav{
+    position:sticky; top:0; z-index:900;
+    background:rgba(250,250,248,0.92);
+    backdrop-filter:saturate(120%) blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-inner{
+    max-width:1180px; margin:0 auto; padding:14px 28px;
+    display:flex; align-items:center; justify-content:space-between; gap:24px;
+  }
+  .brandmark{
+    font-family:var(--serif); font-size:15px; color:var(--ink);
+    display:flex; flex-direction:column; line-height:1.15;
+  }
+  .brandmark strong{ font-size:15.5px; }
+  .brandmark span{ font-size:11px; color:var(--ink-faint); font-family:var(--sans); letter-spacing:.02em; }
+  nav.links{ display:flex; gap:2px; flex-wrap:wrap; }
+  nav.links button{
+    background:none; border:none; cursor:pointer;
+    padding:8px 12px; font-size:13.5px; color:var(--ink-soft);
+    border-radius:var(--radius-pill); transition:background .15s, color .15s;
+  }
+  nav.links button:hover{ background:var(--slate-bg); color:var(--ink); }
+  nav.links button.active{ background:var(--teal); color:#fff; }
+  nav.links button:focus-visible, button:focus-visible, [tabindex]:focus-visible{
+    outline:2px solid var(--teal-dark); outline-offset:2px;
+  }
+  .navtoggle{ display:none; }
+
+  @media (max-width:900px){
+    nav.links{ display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg); border-bottom:1px solid var(--line); padding:8px 16px 16px; flex-direction:column; }
+    nav.links.open{ display:flex; }
+    .navtoggle{ display:inline-flex; background:none; border:1px solid var(--line); border-radius:6px; padding:8px 10px; cursor:pointer; }
+  }
+
+  section{ padding:76px 28px; border-bottom:1px solid var(--line); }
+  section:last-of-type{ border-bottom:none; }
+  .wrap{ max-width:1180px; margin:0 auto; }
+  .kicker{
+    font-size:12.5px; color:var(--teal-dark); font-weight:600;
+    margin-bottom:10px; letter-spacing:.01em;
+  }
+  h2.title{ font-size:clamp(26px,3vw,36px); max-width:22ch; }
+  .lede{ font-size:17px; max-width:60ch; color:var(--ink-soft); }
+
+  /* ---------- status badges ---------- */
+  .badge{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:11.5px; font-weight:600; padding:3px 10px 4px;
+    border-radius:var(--radius-pill); white-space:nowrap;
+  }
+  .badge::before{ content:''; width:6px; height:6px; border-radius:50%; }
+  .badge.confirmed{ background:var(--green-bg); color:var(--green); }
+  .badge.confirmed::before{ background:var(--green); }
+  .badge.proposed{ background:var(--teal-bg); color:var(--teal-dark); }
+  .badge.proposed::before{ background:var(--teal); }
+  .badge.toconfirm{ background:var(--amber-bg); color:var(--amber); }
+  .badge.toconfirm::before{ background:var(--amber); }
+
+  .legend{ display:flex; gap:18px; flex-wrap:wrap; margin:18px 0 34px; }
+  .legend-item{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-soft); }
+
+  /* ---------- hero ---------- */
+  #overview{ padding-top:64px; }
+  .hero-flow{
+    margin-top:44px; display:flex; align-items:center; flex-wrap:wrap; gap:0;
+    border:1px solid var(--line); border-radius:var(--radius-card); background:var(--card); padding:22px;
+  }
+  .hero-node{
+    flex:1 1 120px; text-align:center; padding:10px 6px; font-size:12.5px; color:var(--ink-soft);
+    font-weight:600;
+  }
+  .hero-node strong{ display:block; font-family:var(--serif); font-size:14.5px; color:var(--ink); margin-bottom:2px; font-weight:600; }
+  .hero-arrow{ flex:0 0 auto; color:var(--line-strong); font-size:18px; padding:0 4px; }
+  .hero-node.manual{ color:var(--amber); }
+  .hero-node.manual strong{ color:var(--amber); }
+  @media (max-width:760px){ .hero-flow{ flex-direction:column; } .hero-arrow{ transform:rotate(90deg); } }
+
+  /* ---------- Input/Process/Output cards ---------- */
+  .ipo-row{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; margin-top:22px; }
+  .ipo-card{
+    border:1px solid var(--line); background:var(--card); border-radius:var(--radius-card);
+    padding:18px 18px 16px; position:relative; box-shadow:var(--shadow-soft);
+  }
+  .ipo-card h4{ font-size:15.5px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .ipo-stage{ margin-bottom:10px; }
+  .ipo-stage .lbl{ font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); font-weight:700; display:block; margin-bottom:3px; }
+  .ipo-stage ul{ margin:0; padding-left:16px; font-size:13.5px; color:var(--ink-soft); }
+  .ipo-stage li{ margin-bottom:2px; }
+  .tag-row{ display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .tag{
+    font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:var(--radius-pill);
+    background:var(--amber-bg); color:var(--amber); border:1px solid rgba(165,112,31,0.25);
+  }
+
+  .flow-connector{ display:flex; justify-content:center; margin:6px 0; color:var(--line-strong); font-size:20px; }
+  @media (max-width:900px){ .flow-connector{ display:none; } }
+
+  /* ---------- protected component (what already works) ---------- */
+  .protected-box{
+    border:1.5px dashed var(--green); background:var(--green-bg);
+    border-radius:var(--radius-card); padding:26px 28px; margin-top:30px;
+  }
+  .protected-box h3{ color:var(--teal-dark); font-size:19px; }
+  .protected-flow{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-top:16px; }
+  .protected-node{
+    background:#fff; border:1px solid var(--green); border-radius:var(--radius-card);
+    padding:10px 16px; font-size:13.5px; font-weight:600; color:var(--teal-dark);
+  }
+  .protected-arrow{ color:var(--green); }
+
+  /* ---------- problem chain ---------- */
+  .problem-chain{ display:flex; flex-direction:column; gap:0; max-width:520px; margin-top:26px; }
+  .problem-step{
+    border-left:3px solid var(--amber); background:var(--amber-bg); padding:12px 18px;
+    font-size:14.5px; font-weight:600; color:#5b3f10; margin-bottom:0;
+  }
+  .problem-arrow-v{ text-align:left; padding-left:16px; color:var(--line-strong); font-size:16px; margin:2px 0; }
+  .callout{
+    margin-top:26px; border-left:3px solid var(--teal); background:var(--teal-bg);
+    padding:16px 20px; font-family:var(--serif); font-size:18px; color:var(--teal-dark); max-width:44ch;
+  }
+
+  /* ---------- architecture diagram ---------- */
+  .arch-diagram{ margin-top:40px; display:flex; flex-direction:column; align-items:center; gap:0; }
+  .arch-node{
+    width:100%; max-width:420px; background:var(--card); border:1.5px solid var(--line-strong);
+    border-radius:var(--radius-card); padding:0; text-align:left; cursor:pointer;
+    box-shadow:var(--shadow-soft); transition:border-color .15s, transform .15s;
+  }
+  .arch-node:hover, .arch-node.open{ border-color:var(--teal); }
+  .arch-node.open{ transform:translateY(-1px); }
+  .arch-node-head{ display:flex; align-items:center; justify-content:space-between; padding:16px 20px; }
+  .arch-node-head .name{ font-family:var(--serif); font-size:18px; font-weight:600; }
+  .arch-node-head .role{ font-size:12.5px; color:var(--ink-faint); display:block; margin-top:2px; font-family:var(--sans); }
+  .arch-node-head .chev{ color:var(--ink-faint); transition:transform .2s; font-size:14px; }
+  .arch-node.open .chev{ transform:rotate(180deg); }
+  .arch-detail{ max-height:0; overflow:hidden; transition:max-height .25s ease; border-top:1px solid var(--line); }
+  .arch-node.open .arch-detail{ max-height:420px; }
+  .arch-detail-inner{ padding:16px 20px 20px; display:grid; grid-template-columns:1fr; gap:10px; }
+  .arch-detail-inner .lbl{ font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); font-weight:700; }
+  .arch-detail-inner p{ font-size:13.5px; margin:2px 0 0; color:var(--ink-soft); }
+  .arch-arrow{ color:var(--line-strong); font-size:20px; margin:2px 0; }
+
+  /* ---------- toggle ---------- */
+  .toggle-wrap{ display:flex; justify-content:center; margin:34px 0 8px; }
+  .toggle-group{ display:inline-flex; border:1px solid var(--line-strong); border-radius:var(--radius-pill); padding:3px; background:var(--card); }
+  .toggle-btn{
+    border:none; background:none; padding:9px 20px; border-radius:var(--radius-pill); font-size:13.5px; font-weight:600;
+    color:var(--ink-soft); cursor:pointer; transition:background .15s, color .15s;
+  }
+  .toggle-btn.active{ background:var(--ink); color:#fff; }
+  .compare-panel{ display:none; margin-top:26px; }
+  .compare-panel.active{ display:block; }
+  .compare-list{ list-style:none; margin:20px 0 0; padding:0; display:grid; gap:8px; }
+  .compare-list li{ font-size:14px; color:var(--ink-soft); padding-left:22px; position:relative; }
+  .compare-list li::before{ position:absolute; left:0; font-weight:700; }
+  .compare-list.before li::before{ content:'—'; color:var(--amber); }
+  .compare-list.after li::before{ content:'✓'; color:var(--green); }
+
+  /* ---------- data flow ---------- */
+  .dataflow-track{ margin-top:36px; border:1px solid var(--line); border-radius:var(--radius-card); background:var(--card); padding:26px; }
+  .dataflow-record{
+    background:var(--slate-bg); border-radius:var(--radius-card); padding:12px 16px; font-size:13px;
+    color:var(--ink-soft); margin-bottom:22px; font-family:'SFMono-Regular',Consolas,monospace;
+    display:flex; flex-wrap:wrap; gap:14px;
+  }
+  .dataflow-record span b{ display:block; color:var(--ink-faint); font-family:var(--sans); font-size:10px; text-transform:uppercase; letter-spacing:.06em; }
+  .dataflow-steps{ display:flex; gap:10px; overflow-x:auto; padding-bottom:8px; }
+  .dataflow-step{
+    flex:0 0 200px; border:1px solid var(--line); border-radius:var(--radius-card); padding:14px; background:var(--bg);
+    opacity:.4; transition:opacity .3s, border-color .3s;
+  }
+  .dataflow-step.lit{ opacity:1; border-color:var(--teal); }
+  .dataflow-step h5{ margin:0 0 8px; font-family:var(--serif); font-size:14.5px; }
+  .dataflow-step .lbl{ font-size:10px; text-transform:uppercase; color:var(--ink-faint); font-weight:700; display:block; margin-top:8px; }
+  .dataflow-step p{ font-size:12.5px; margin:2px 0 0; color:var(--ink-soft); }
+  .dataflow-controls{ display:flex; justify-content:center; margin-top:18px; }
+  .btn{
+    border:1px solid var(--ink); background:var(--ink); color:#fff; padding:9px 18px; border-radius:var(--radius-pill);
+    font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .btn.secondary{ background:none; color:var(--ink); }
+
+  /* ---------- workflow explorer ---------- */
+  .tabs{ display:flex; gap:6px; flex-wrap:wrap; margin-top:30px; border-bottom:1px solid var(--line); padding-bottom:0; }
+  .tab-btn{
+    background:none; border:none; padding:10px 16px; font-size:13.5px; font-weight:600; color:var(--ink-faint);
+    cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;
+  }
+  .tab-btn.active{ color:var(--teal-dark); border-bottom-color:var(--teal); }
+  .tab-panel{ display:none; padding-top:28px; }
+  .tab-panel.active{ display:block; }
+
+  .decision-tree{ margin-top:10px; }
+  .decision-q{ font-family:var(--serif); font-size:17px; margin-bottom:14px; }
+  .decision-choices{ display:flex; gap:12px; margin-bottom:18px; }
+  .decision-branch{ display:none; border-left:3px solid var(--teal); background:var(--teal-bg); padding:14px 18px; border-radius:0 var(--radius-card) var(--radius-card) 0; margin-top:10px; }
+  .decision-branch.show{ display:block; }
+  .decision-branch p{ margin:0; font-size:13.5px; color:var(--ink-soft); }
+
+  /* ---------- data mapping table ---------- */
+  table.mapping{ width:100%; border-collapse:collapse; margin-top:22px; font-size:13.5px; }
+  table.mapping th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); padding:8px 12px; border-bottom:2px solid var(--line-strong); }
+  table.mapping td{ padding:10px 12px; border-bottom:1px solid var(--line); color:var(--ink-soft); vertical-align:top; }
+  table.mapping tr:hover td{ background:var(--bg-alt); }
+
+  /* ---------- decision cards / reasoning grid ---------- */
+  .grid-cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; margin-top:24px; }
+  .reason-card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius-card); padding:18px; box-shadow:var(--shadow-soft); }
+  .reason-card h4{ font-size:15px; margin-bottom:8px; }
+  .reason-card .k{ font-size:11px; text-transform:uppercase; color:var(--ink-faint); font-weight:700; letter-spacing:.05em; }
+  .reason-card p{ font-size:13.5px; margin:2px 0 10px; }
+
+  .split{ display:grid; grid-template-columns:1fr 1fr; gap:26px; margin-top:26px; }
+  @media (max-width:760px){ .split{ grid-template-columns:1fr; } }
+  .split-box{ border-radius:var(--radius-card); padding:20px 22px; }
+  .split-box.no{ background:var(--amber-bg); border:1px solid rgba(165,112,31,0.25); }
+  .split-box.yes{ background:var(--green-bg); border:1px solid rgba(62,125,82,0.25); }
+  .split-box h4{ font-size:14.5px; margin-bottom:10px; }
+  .split-box ul{ margin:0; padding-left:18px; font-size:13.5px; color:var(--ink-soft); }
+  .split-box li{ margin-bottom:5px; }
+
+  /* ---------- decisions table ---------- */
+  table.decisions{ width:100%; border-collapse:collapse; margin-top:22px; font-size:13.5px; }
+  table.decisions td{ padding:12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.decisions td.decision{ font-weight:600; width:38%; color:var(--ink); }
+  table.decisions td.why{ color:var(--ink-soft); }
+
+  /* ---------- questions ---------- */
+  .qlist{ margin-top:24px; display:grid; gap:10px; }
+  .qitem{ display:flex; gap:14px; align-items:flex-start; border:1px solid var(--line); background:var(--card); border-radius:var(--radius-card); padding:14px 18px; }
+  .qitem .num{ font-family:var(--serif); font-size:16px; color:var(--ink-faint); flex:0 0 auto; }
+  .qitem p{ margin:0; font-size:14px; color:var(--ink); }
+
+  /* ---------- roadmap ---------- */
+  .phase-row{ display:flex; flex-direction:column; gap:0; margin-top:30px; }
+  .phase{ display:grid; grid-template-columns:120px 1fr; gap:20px; padding:18px 0; border-top:1px solid var(--line); }
+  .phase:first-child{ border-top:none; }
+  .phase .pname{ font-family:var(--serif); font-size:16px; color:var(--teal-dark); }
+  .phase-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  @media (max-width:700px){ .phase{ grid-template-columns:1fr; } .phase-grid{ grid-template-columns:1fr; } }
+  .phase-grid .lbl{ font-size:10px; text-transform:uppercase; color:var(--ink-faint); font-weight:700; letter-spacing:.06em; display:block; margin-bottom:3px; }
+  .phase-grid p{ font-size:13px; margin:0; color:var(--ink-soft); }
+
+  /* ---------- testing matrix ---------- */
+  .test-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-top:24px; }
+  .test-card{ border:1px solid var(--line); border-radius:var(--radius-card); padding:16px; background:var(--card); }
+  .test-card h5{ margin:0 0 8px; font-family:var(--serif); font-size:15px; }
+  .test-card .lbl{ font-size:10px; text-transform:uppercase; color:var(--ink-faint); font-weight:700; }
+  .test-card p{ font-size:13px; margin:2px 0 0; color:var(--ink-soft); }
+
+  /* ---------- glossary ---------- */
+  .glossary-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:0; margin-top:24px; border-top:1px solid var(--line); }
+  .gitem{ border-bottom:1px solid var(--line); padding:16px 4px; }
+  .gitem dt{ font-family:var(--serif); font-size:15px; font-weight:600; margin-bottom:4px; }
+  .gitem dd{ margin:0; font-size:13.5px; color:var(--ink-soft); }
+
+  /* ---------- final ---------- */
+  .final-flow{ margin-top:40px; display:flex; flex-direction:column; align-items:center; gap:0; }
+  .final-node{
+    width:100%; max-width:380px; text-align:center; background:var(--ink); color:#fff;
+    padding:16px 20px; border-radius:var(--radius-card); font-family:var(--serif); font-size:16px;
+  }
+  .final-node.dim{ background:var(--card); color:var(--ink); border:1.5px solid var(--line-strong); }
+  .final-arrow{ color:var(--line-strong); font-size:18px; margin:2px 0; }
+  .final-statement{ text-align:center; margin-top:36px; font-family:var(--serif); font-size:20px; color:var(--teal-dark); letter-spacing:.01em; line-height:1.5; }
+
+  footer{ padding:40px 28px 60px; text-align:center; }
+  footer p{ margin:0 auto; font-size:12.5px; color:var(--ink-faint); max-width:52ch; }
+
+  /* print */
+  @media print{
+    header.topnav, #progress, .toggle-wrap, .dataflow-controls{ display:none !important; }
+    section{ break-inside:avoid; border-bottom:none; padding:24px 0; }
+    .arch-detail{ max-height:none !important; }
+    body{ background:#fff; }
+  }
+
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+  /* ============ live workflow simulator ============ */
+  .sim-toprow{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px; margin-top:34px; }
+  .sim-controls{ display:flex; gap:10px; flex-wrap:wrap; }
+  .sim-controls .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .sim-view-toggle{ display:flex; align-items:center; gap:10px; }
+  .sim-view-label{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); font-weight:700; }
+  .toggle-group.small .toggle-btn{ padding:6px 14px; font-size:12.5px; }
+
+  .sim-progress{ margin-top:26px; }
+  .sim-progress-track{ height:4px; background:var(--line); border-radius:var(--radius-pill); overflow:hidden; }
+  .sim-progress-fill{ height:100%; width:0%; background:var(--teal); transition:width .5s ease; }
+  .sim-progress-labels{ display:flex; justify-content:space-between; margin-top:8px; }
+  .sim-progress-labels span{ font-size:11px; color:var(--ink-faint); font-weight:600; transition:color .3s; }
+  .sim-progress-labels span.active{ color:var(--teal-dark); }
+  .sim-progress-labels span.done{ color:var(--green); }
+  .sim-stepcounter{ margin-top:10px; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-faint); }
+
+  .sim-layout{ display:grid; grid-template-columns:1fr 300px; gap:28px; margin-top:26px; align-items:start; }
+  @media (max-width:900px){ .sim-layout{ grid-template-columns:1fr; } }
+
+  .sim-stage{ position:relative; padding-left:38px; }
+  .sim-rail{ position:absolute; left:9px; top:6px; bottom:6px; width:2px; background:var(--line); }
+  .sim-rail-fill{ position:absolute; left:9px; top:6px; width:2px; height:0; background:var(--teal); transition:height .5s ease; }
+  .sim-marker{
+    position:absolute; left:3px; top:6px; width:14px; height:14px; border-radius:50%;
+    background:var(--teal); box-shadow:0 0 0 4px rgba(43,110,100,.18);
+    opacity:0; transition:top .5s ease, opacity .3s ease; z-index:2;
+  }
+  .sim-marker.active{ opacity:1; }
+
+  .sim-node{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius-card);
+    margin-bottom:14px; box-shadow:var(--shadow-soft); transition:border-color .3s;
+  }
+  .sim-node.processing{ border-color:var(--teal); }
+  .sim-node.complete{ border-color:var(--green); }
+  .sim-node-head{ display:flex; align-items:center; gap:12px; padding:14px 18px; }
+  .sim-node-head > div{ flex:1; display:flex; flex-direction:column; }
+  .sim-node-head .name{ font-family:var(--serif); font-size:15.5px; font-weight:600; }
+  .sim-node-head .role{ font-size:11.5px; color:var(--ink-faint); }
+  .sim-dot{ width:10px; height:10px; border-radius:50%; background:var(--line-strong); flex:0 0 auto; transition:background .3s, box-shadow .3s; }
+  .sim-node.processing .sim-dot{ background:var(--teal); box-shadow:0 0 0 4px rgba(43,110,100,.18); }
+  .sim-node.complete .sim-dot{ background:var(--green); }
+  .sim-status{ font-size:10px; font-weight:700; letter-spacing:.04em; padding:3px 10px; border-radius:var(--radius-pill); background:var(--slate-bg); color:var(--slate); flex:0 0 auto; }
+  .sim-node.processing .sim-status{ background:var(--teal-bg); color:var(--teal-dark); }
+  .sim-node.complete .sim-status{ background:var(--green-bg); color:var(--green); }
+
+  .sim-detail{ max-height:0; overflow:hidden; transition:max-height .3s ease; border-top:1px solid transparent; }
+  .sim-node.processing .sim-detail{ max-height:600px; border-top-color:var(--line); }
+  .sim-detail-inner{ padding:16px 18px 18px; }
+  .sim-detail-inner .lbl{ display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700; margin:10px 0 6px; }
+  .sim-detail-inner .lbl:first-child{ margin-top:0; }
+
+  .io-grid{ display:grid; grid-template-columns:auto 1fr; gap:3px 12px; font-size:12.5px; }
+  .io-grid span{ color:var(--ink-faint); }
+  .io-grid b{ color:var(--ink); font-weight:600; }
+
+  ul.checklist{ list-style:none; margin:0; padding:0; }
+  ul.checklist li{
+    font-size:13px; color:var(--ink-soft); padding:3px 0 3px 20px; position:relative; opacity:0;
+  }
+  ul.checklist li::before{ content:'✓'; position:absolute; left:0; color:var(--teal); font-weight:700; }
+  .sim-node.processing ul.checklist li{ animation:checkIn .35s ease forwards; }
+  .sim-node.processing ul.checklist li:nth-child(1){ animation-delay:.05s; }
+  .sim-node.processing ul.checklist li:nth-child(2){ animation-delay:.3s; }
+  .sim-node.processing ul.checklist li:nth-child(3){ animation-delay:.55s; }
+  .sim-node.processing ul.checklist li:nth-child(4){ animation-delay:.8s; }
+  .sim-node.processing ul.checklist li:nth-child(5){ animation-delay:1.05s; }
+  @keyframes checkIn{ from{ opacity:0; transform:translateX(-4px); } to{ opacity:1; transform:none; } }
+
+  .sim-io{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:4px; }
+  @media (max-width:700px){ .sim-io{ grid-template-columns:1fr; } }
+  .sim-io p{ font-size:12.5px; margin:2px 0 0; color:var(--ink-soft); }
+  .sim-readystatus{ display:inline-block; margin-top:12px; font-size:11px; font-weight:700; letter-spacing:.04em; color:var(--teal-dark); }
+
+  .sim-panel{
+    border:1px solid var(--line); background:var(--bg-alt); border-radius:var(--radius-card);
+    padding:20px; position:sticky; top:90px;
+  }
+  .sim-panel .lbl{ font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700; }
+  .sim-panel h4{ font-size:16.5px; margin:8px 0 8px; }
+  .sim-panel p{ font-size:13.5px; margin:0; color:var(--ink-soft); }
+
+  .explorer-row{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:20px; }
+  .explorer-card{
+    text-align:left; background:var(--card); border:1px solid var(--line); border-radius:var(--radius-card);
+    padding:16px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:border-color .15s, transform .15s;
+  }
+  .explorer-card:hover{ border-color:var(--teal); transform:translateY(-1px); }
+  .explorer-card .num{ font-family:var(--serif); font-size:13px; color:var(--ink-faint); }
+  .explorer-card .ename{ font-family:var(--serif); font-size:15.5px; font-weight:600; }
+  .explorer-card .edesc{ font-size:12px; color:var(--ink-soft); }
+
+  .scenario-row{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; margin-top:22px; }
+  .scenario-card{ border:1px solid var(--line); background:var(--card); border-radius:var(--radius-card); padding:18px; }
+  .scenario-card h4{ font-size:15px; margin-bottom:6px; }
+  .scenario-card p{ font-size:13px; margin:0 0 12px; }
+  .scenario-reveal{ max-height:0; overflow:hidden; transition:max-height .3s ease; }
+  .scenario-reveal.show{ max-height:260px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+  .scenario-reveal p{ font-size:13px; }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<header class="topnav">
+  <div class="nav-inner">
+    <div class="brandmark"><strong>Remy's Consulting</strong><span>TechSoup Integration — Architecture Proposal</span></div>
+    <button class="navtoggle" id="navToggle" aria-expanded="false" aria-controls="navLinks">Menu</button>
+    <nav class="links" id="navLinks">
+      <button data-target="overview">Overview</button>
+      <button data-target="current">Current State</button>
+      <button data-target="architecture">Architecture</button>
+      <button data-target="live-workflow">Workflow</button>
+      <button data-target="workflows">Data &amp; Scenarios</button>
+      <button data-target="reasoning">Why This Design</button>
+      <button data-target="confirmations">Confirmations</button>
+      <button data-target="roadmap">Roadmap</button>
+      <button data-target="glossary">Glossary</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ================= OVERVIEW ================= -->
+<section id="overview">
+  <div class="wrap">
+    <div class="kicker">Integration architecture proposal</div>
+    <h2 class="title">From manual handoff to a connected intake</h2>
+    <p class="lede">Remy's Consulting has worked with TechSoup for about three years, and TechSoup remains an important source of visibility with nonprofit organizations. Today, moving a nonprofit's information from that first submission into Remy's existing client workflow still depends on someone reviewing it and, often, typing it into HoneyBook by hand. This document lays out where that manual work happens, what should stay exactly as it is, and the simplest way to connect the pieces so information travels on its own.</p>
+
+    <div class="legend">
+      <div class="legend-item"><span class="badge confirmed">Confirmed</span> known from the project brief or verified platform capability</div>
+      <div class="legend-item"><span class="badge proposed">Proposed</span> our recommended approach</div>
+      <div class="legend-item"><span class="badge toconfirm">To confirm</span> needs a direct answer from Remy's or TechSoup</div>
+    </div>
+
+    <div class="hero-flow" role="img" aria-label="Simplified flow: nonprofit, TechSoup, HubSpot or email review, manual entry, HoneyBook, existing automation">
+      <div class="hero-node"><strong>Nonprofit</strong>submits once</div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>TechSoup</strong>intake</div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node manual"><strong>Team review</strong>+ manual entry</div>
+      <div class="hero-arrow">→</div>
+      <div class="hero-node"><strong>HoneyBook</strong>existing automation</div>
+    </div>
+    <p style="margin-top:14px;font-size:13px;">This is today's process. The proposed architecture below replaces the highlighted manual step with a direct, automated handoff — without touching what HoneyBook already does well.</p>
+  </div>
+</section>
+
+<!-- ================= CURRENT STATE ================= -->
+<section id="current">
+  <div class="wrap">
+    <div class="kicker">Section 1 · The current process</div>
+    <h2 class="title">Where the manual work actually happens</h2>
+    <p class="lede">Each stage below is shown as what comes in, what someone or something does with it, and what comes out. The bottleneck isn't any single platform — it's the handoff between them.</p>
+
+    <div class="ipo-row">
+      <div class="ipo-card">
+        <h4>Nonprofit <span class="badge confirmed">Confirmed</span></h4>
+        <div class="ipo-stage"><span class="lbl">Input</span><ul><li>Contact details</li><li>Organization information</li><li>Program interest</li></ul></div>
+        <div class="ipo-stage"><span class="lbl">Process</span><ul><li>Completes the TechSoup intake</li></ul></div>
+        <div class="ipo-stage"><span class="lbl">Output</span><ul><li>A submission</li></ul></div>
+      </div>
+      <div class="ipo-card">
+        <h4>TechSoup / HubSpot <span class="badge toconfirm">To confirm</span></h4>
+        <div class="ipo-stage"><span class="lbl">Input</span><ul><li>The submission</li></ul></div>
+        <div class="ipo-stage"><span class="lbl">Process</span><ul><li>Captured through a HubSpot-backed system and/or an email notification</li></ul></div>
+        <div class="ipo-stage"><span class="lbl">Output</span><ul><li>Submission details reach Remy's team</li></ul></div>
+        <div class="tag-row"><span class="tag">Exact setup unconfirmed</span></div>
+      </div>
+      <div class="ipo-card">
+        <h4>Remy's team <span class="badge confirmed">Confirmed</span></h4>
+        <div class="ipo-stage"><span class="lbl">Input</span><ul><li>Submission information</li></ul></div>
+        <div class="ipo-stage"><span class="lbl">Process</span><ul><li>Reviews the submission</li><li>Copies the details</li><li>Types them into HoneyBook</li><li>Decides the next step</li></ul></div>
+        <div class="ipo-stage"><span class="lbl">Output</span><ul><li>A HoneyBook record</li></ul></div>
+        <div class="tag-row"><span class="tag">Manual</span><span class="tag">Copy / paste</span><span class="tag">Human handoff</span></div>
+      </div>
+      <div class="ipo-card">
+        <h4>HoneyBook <span class="badge confirmed">Confirmed</span></h4>
+        <div class="ipo-stage"><span class="lbl">Input</span><ul><li>The record staff entered</li></ul></div>
+        <div class="ipo-stage"><span class="lbl">Process</span><ul><li>Existing automation takes over</li></ul></div>
+        <div class="ipo-stage"><span class="lbl">Output</span><ul><li>Tagging, emails, program access, follow-up</li></ul></div>
+        <div class="tag-row"><span class="tag">Potential duplicate</span><span class="tag">Potential delay</span></div>
+      </div>
+    </div>
+
+    <!-- what already works -->
+    <div class="protected-box">
+      <span class="badge confirmed" style="margin-bottom:10px;">Confirmed — do not rebuild</span>
+      <h3>What's already working</h3>
+      <p style="max-width:56ch;">Remy's already has a HoneyBook automation that runs well once a record exists: it creates the client/project record, tags it as coming from TechSoup, sends the right emails and materials, and carries the person through follow-up. None of that needs to change. The only gap is what happens <em>before</em> that record exists.</p>
+      <div class="protected-flow">
+        <div class="protected-node">HoneyBook record created</div>
+        <div class="protected-arrow">→</div>
+        <div class="protected-node">Existing automation runs</div>
+        <div class="protected-arrow">→</div>
+        <div class="protected-node">Existing downstream process continues</div>
+      </div>
+      <p style="margin-top:14px;max-width:56ch;">The objective isn't to replace this automation. It's to feed it the right information automatically, the same way it already receives information today.</p>
+    </div>
+
+    <!-- core problem -->
+    <div style="margin-top:56px;">
+      <h3 style="font-size:20px;">The core problem, mapped</h3>
+      <div class="problem-chain">
+        <div class="problem-step">Manual data entry</div>
+        <div class="problem-arrow-v">↓</div>
+        <div class="problem-step">Duplicate-record risk</div>
+        <div class="problem-arrow-v">↓</div>
+        <div class="problem-step">Delayed handoff</div>
+        <div class="problem-arrow-v">↓</div>
+        <div class="problem-step">Inconsistent data</div>
+        <div class="problem-arrow-v">↓</div>
+        <div class="problem-step">Administrative overhead</div>
+        <div class="problem-arrow-v">↓</div>
+        <div class="problem-step">Harder to scale with the next campaign</div>
+      </div>
+      <div class="callout">Automate the handoff. Preserve what already works.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ARCHITECTURE ================= -->
+<section id="architecture">
+  <div class="wrap">
+    <div class="kicker">Section 2 · The proposed architecture</div>
+    <h2 class="title">One connected path, using tools you already have</h2>
+    <p class="lede">The guiding principle: let each system keep doing the job it's already good at, and add automation only where manual work exists today. Click any step to see what it receives, what it does, what it passes on, and why it's there.</p>
+
+    <div class="arch-diagram" id="archDiagram">
+      <!-- nodes injected identically in HTML for accessibility, built manually -->
+      <button class="arch-node" data-node="nonprofit" aria-expanded="false">
+        <div class="arch-node-head"><div><span class="name">Nonprofit</span><span class="role">Submits once</span></div><span class="chev">▾</span></div>
+        <div class="arch-detail"><div class="arch-detail-inner">
+          <div><span class="lbl">Receives</span><p>Access to the TechSoup program page.</p></div>
+          <div><span class="lbl">Does</span><p>Completes one intake form with contact and organization details.</p></div>
+          <div><span class="lbl">Sends</span><p>A single submission — no separate form for Remy's.</p></div>
+          <div><span class="lbl">Why here</span><p>Keeping this a single step is the entire point: the organization should never be asked to enter the same information twice.</p></div>
+        </div></div>
+      </button>
+      <div class="arch-arrow">↓</div>
+
+      <button class="arch-node" data-node="techsoup" aria-expanded="false">
+        <div class="arch-node-head"><div><span class="name">TechSoup <span class="badge toconfirm">To confirm</span></span><span class="role">Intake / source</span></div><span class="chev">▾</span></div>
+        <div class="arch-detail"><div class="arch-detail-inner">
+          <div><span class="lbl">Receives</span><p>The nonprofit's submission.</p></div>
+          <div><span class="lbl">Does</span><p>Captures it as TechSoup's system of record for the partnership.</p></div>
+          <div><span class="lbl">Sends</span><p>Submission details onward — the exact mechanism is not yet confirmed.</p></div>
+          <div><span class="lbl">Why here</span><p>TechSoup is the nonprofit-facing front door and an important partner relationship; we're not proposing to route around it.</p></div>
+        </div></div>
+      </button>
+      <div class="arch-arrow">↓</div>
+
+      <button class="arch-node" data-node="hubspot" aria-expanded="false">
+        <div class="arch-node-head"><div><span class="name">HubSpot <span class="badge proposed">Proposed</span></span><span class="role">Contact / CRM record</span></div><span class="chev">▾</span></div>
+        <div class="arch-detail"><div class="arch-detail-inner">
+          <div><span class="lbl">Receives</span><p>The TechSoup submission, if the existing intake already runs through HubSpot.</p></div>
+          <div><span class="lbl">Does</span><p>Creates or updates a structured contact record.</p></div>
+          <div><span class="lbl">Sends</span><p>That structured record to Zapier.</p></div>
+          <div><span class="lbl">Why here</span><p>If TechSoup's intake is already HubSpot-backed, that record is the natural, already-existing integration point — no new database required.</p></div>
+        </div></div>
+      </button>
+      <div class="arch-arrow">↓</div>
+
+      <button class="arch-node" data-node="zapier" aria-expanded="false">
+        <div class="arch-node-head"><div><span class="name">Zapier <span class="badge proposed">Proposed</span></span><span class="role">Connect + route</span></div><span class="chev">▾</span></div>
+        <div class="arch-detail"><div class="arch-detail-inner">
+          <div><span class="lbl">Receives</span><p>The relevant HubSpot event or record.</p></div>
+          <div><span class="lbl">Does</span><p>Watches for the agreed event, checks for an existing contact, and prepares only the fields HoneyBook needs.</p></div>
+          <div><span class="lbl">Sends</span><p>A clean, ready-to-use record to HoneyBook.</p></div>
+          <div><span class="lbl">Why here</span><p>Zapier is a standard connector both platforms already support, which avoids writing and maintaining custom integration code.</p></div>
+        </div></div>
+      </button>
+      <div class="arch-arrow">↓</div>
+
+      <button class="arch-node" data-node="honeybook" aria-expanded="false">
+        <div class="arch-node-head"><div><span class="name">HoneyBook <span class="badge confirmed">Confirmed</span></span><span class="role">Client / project workflow</span></div><span class="chev">▾</span></div>
+        <div class="arch-detail"><div class="arch-detail-inner">
+          <div><span class="lbl">Receives</span><p>The required contact and project information from Zapier.</p></div>
+          <div><span class="lbl">Does</span><p>Creates or updates the appropriate record, using whatever currently starts the existing automation.</p></div>
+          <div><span class="lbl">Sends</span><p>Nothing new — it hands off to the automation that already runs today.</p></div>
+          <div><span class="lbl">Why here</span><p>This is where the existing, working automation lives. We are feeding it, not replacing it.</p></div>
+        </div></div>
+      </button>
+      <div class="arch-arrow">↓</div>
+
+      <button class="arch-node" data-node="existing" aria-expanded="false">
+        <div class="arch-node-head"><div><span class="name">Existing automation <span class="badge confirmed">Confirmed</span></span><span class="role">Continues unchanged</span></div><span class="chev">▾</span></div>
+        <div class="arch-detail"><div class="arch-detail-inner">
+          <div><span class="lbl">Receives</span><p>The HoneyBook record created above.</p></div>
+          <div><span class="lbl">Does</span><p>Tags the client as coming from TechSoup, sends emails and materials, and continues the follow-up sequence — exactly as it does today.</p></div>
+          <div><span class="lbl">Sends</span><p>The same downstream experience the team already relies on.</p></div>
+          <div><span class="lbl">Why here</span><p>This automation already works. There's no reason to touch it.</p></div>
+        </div></div>
+      </button>
+    </div>
+
+    <p style="text-align:center; margin-top:22px; font-size:12.5px; color:var(--ink-faint);">Important architectural principle: we are connecting the systems you already use — not adding a new CRM, database, or automation platform.</p>
+  </div>
+</section>
+
+<!-- ================= LIVE WORKFLOW SIMULATOR ================= -->
+<section id="live-workflow">
+  <div class="wrap">
+    <div class="kicker">Section 3 · The workflow, live</div>
+    <h2 class="title">Watch one submission move through the system</h2>
+    <p class="lede">This is the same architecture from the previous section, shown as it would actually run. Press <strong>Run workflow</strong> to follow one simulated nonprofit submission from TechSoup all the way to HoneyBook's existing automation — and open any step to see exactly what happens inside it.</p>
+
+    <div class="sim-toprow">
+      <div class="sim-controls">
+        <button class="btn" id="simRun">▶ Run workflow</button>
+        <button class="btn secondary" id="simPause" disabled>⏸ Pause</button>
+        <button class="btn secondary" id="simReplay">↻ Replay</button>
+      </div>
+      <div class="sim-view-toggle">
+        <span class="sim-view-label">View</span>
+        <div class="toggle-group small" id="simViewToggle">
+          <button class="toggle-btn active" data-view="business">Business</button>
+          <button class="toggle-btn" data-view="technical">Technical</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sim-progress">
+      <div class="sim-progress-track"><div class="sim-progress-fill" id="simProgressFill"></div></div>
+      <div class="sim-progress-labels" id="simProgressLabels">
+        <span data-step="0">Submission</span>
+        <span data-step="1">TechSoup</span>
+        <span data-step="2">HubSpot</span>
+        <span data-step="3">Zapier</span>
+        <span data-step="4">HoneyBook</span>
+        <span data-step="5">Automation</span>
+      </div>
+    </div>
+    <div class="sim-stepcounter" id="simStepCounter">Not started — press Run workflow</div>
+
+    <div class="sim-layout">
+      <div class="sim-stage" id="simStage">
+        <div class="sim-rail"></div>
+        <div class="sim-rail-fill" id="simRailFill"></div>
+        <div class="sim-marker" id="simMarker"></div>
+
+        <div class="sim-node" id="node-0" data-step="0">
+          <div class="sim-node-head">
+            <span class="sim-dot"></span>
+            <div><span class="name">Nonprofit submission</span><span class="role">Entry point</span></div>
+            <span class="sim-status">WAITING</span>
+          </div>
+          <div class="sim-detail"><div class="sim-detail-inner">
+            <span class="lbl">New submission</span>
+            <div class="io-grid">
+              <span>Organization</span><b>Community Growth Foundation</b>
+              <span>Contact</span><b>Sarah Johnson</b>
+              <span>Email</span><b>sarah@example.org</b>
+              <span>Program</span><b>Grant Funding Playbook &amp; Toolkit</b>
+            </div>
+            <span class="lbl">Processing</span>
+            <ul class="checklist"><li>Submission captured</li></ul>
+            <span class="sim-readystatus">STATUS: READY FOR TECHSOUP</span>
+          </div></div>
+        </div>
+
+        <div class="sim-node" id="node-1" data-step="1">
+          <div class="sim-node-head">
+            <span class="sim-dot"></span>
+            <div><span class="name">TechSoup <span class="badge toconfirm">To confirm</span></span><span class="role">Intake / source</span></div>
+            <span class="sim-status">WAITING</span>
+          </div>
+          <div class="sim-detail"><div class="sim-detail-inner">
+            <span class="lbl">Processing</span>
+            <ul class="checklist">
+              <li>Submission received</li>
+              <li>Required fields detected</li>
+              <li>Source recorded as TechSoup</li>
+              <li>Program identified</li>
+            </ul>
+            <div class="sim-io">
+              <div><span class="lbl">Input</span><p>The nonprofit's intake submission.</p></div>
+              <div><span class="lbl">Process</span><p>Captures the submission as TechSoup's record of the partnership.</p></div>
+              <div><span class="lbl">Output</span><p>Submission details, ready to reach HubSpot.</p></div>
+            </div>
+            <span class="sim-readystatus">STATUS: READY FOR HUBSPOT</span>
+          </div></div>
+        </div>
+
+        <div class="sim-node" id="node-2" data-step="2">
+          <div class="sim-node-head">
+            <span class="sim-dot"></span>
+            <div><span class="name">HubSpot <span class="badge proposed">Proposed</span></span><span class="role">CRM record</span></div>
+            <span class="sim-status">WAITING</span>
+          </div>
+          <div class="sim-detail"><div class="sim-detail-inner">
+            <span class="lbl">Incoming data</span>
+            <div class="io-grid">
+              <span>First name</span><b>Sarah</b>
+              <span>Last name</span><b>Johnson</b>
+              <span>Email</span><b>sarah@example.org</b>
+              <span>Organization</span><b>Community Growth Foundation</b>
+              <span>Program</span><b>Grant Funding Playbook</b>
+              <span>Source</span><b>TechSoup</b>
+            </div>
+            <span class="lbl">Processing</span>
+            <ul class="checklist">
+              <li>Receive submission</li>
+              <li>Match or create contact</li>
+              <li>Store structured information</li>
+              <li>Preserve source and program context</li>
+              <li>Prepare record for Zapier</li>
+            </ul>
+            <span class="sim-readystatus">STATUS: READY FOR ZAPIER</span>
+          </div></div>
+        </div>
+
+        <div class="sim-node" id="node-3" data-step="3">
+          <div class="sim-node-head">
+            <span class="sim-dot"></span>
+            <div><span class="name">Zapier <span class="badge proposed">Proposed</span></span><span class="role">Connector</span></div>
+            <span class="sim-status">WAITING</span>
+          </div>
+          <div class="sim-detail"><div class="sim-detail-inner">
+            <span class="lbl">Processing</span>
+            <ul class="checklist">
+              <li>Detect the configured HubSpot event</li>
+              <li>Retrieve the required fields</li>
+              <li>Check for an existing record</li>
+              <li>Apply the agreed rules</li>
+              <li>Map fields for HoneyBook</li>
+            </ul>
+            <div class="sim-io">
+              <div><span class="lbl">Input</span><p>The HubSpot contact/submission record.</p></div>
+              <div><span class="lbl">Process</span><p>Detects the event, checks for duplicates, and prepares only the required fields.</p></div>
+              <div><span class="lbl">Output</span><p>A clean, mapped payload for HoneyBook.</p></div>
+            </div>
+            <span class="sim-readystatus">STATUS: READY FOR HONEYBOOK</span>
+          </div></div>
+        </div>
+
+        <div class="sim-node" id="node-4" data-step="4">
+          <div class="sim-node-head">
+            <span class="sim-dot"></span>
+            <div><span class="name">HoneyBook <span class="badge confirmed">Confirmed</span></span><span class="role">Downstream record</span></div>
+            <span class="sim-status">WAITING</span>
+          </div>
+          <div class="sim-detail"><div class="sim-detail-inner">
+            <span class="lbl">Incoming data</span>
+            <div class="io-grid">
+              <span>Client</span><b>Sarah Johnson</b>
+              <span>Organization</span><b>Community Growth Foundation</b>
+              <span>Program</span><b>Grant Funding Playbook</b>
+            </div>
+            <span class="lbl">Processing</span>
+            <ul class="checklist">
+              <li>Create or update the record</li>
+              <li>Apply the program identifier</li>
+              <li>Hand off to the existing automation trigger</li>
+            </ul>
+            <span class="sim-readystatus">STATUS: EXISTING AUTOMATION CAN BEGIN</span>
+          </div></div>
+        </div>
+
+        <div class="sim-node" id="node-5" data-step="5">
+          <div class="sim-node-head">
+            <span class="sim-dot"></span>
+            <div><span class="name">Existing automation <span class="badge confirmed">Confirmed</span></span><span class="role">Unchanged</span></div>
+            <span class="sim-status">WAITING</span>
+          </div>
+          <div class="sim-detail"><div class="sim-detail-inner">
+            <span class="lbl">Processing — exactly as it runs today</span>
+            <ul class="checklist">
+              <li>Tag the client as coming from TechSoup</li>
+              <li>Send the relevant emails and resources</li>
+              <li>Continue the existing follow-up sequence</li>
+            </ul>
+            <span class="sim-readystatus" style="color:var(--green);">✓ WORKFLOW COMPLETE</span>
+          </div></div>
+        </div>
+      </div>
+
+      <aside class="sim-panel" id="simWhatsHappening" aria-live="polite">
+        <span class="lbl">What's happening now</span>
+        <h4 id="whHeading">Ready to start</h4>
+        <p id="whBody">Press "Run workflow" to follow Sarah Johnson's submission from TechSoup through to HoneyBook's existing automation.</p>
+      </aside>
+    </div>
+
+    <h3 style="margin-top:56px; font-size:20px;">Explore each step</h3>
+    <p class="max-w">Click any step to jump straight to it and see what happens inside.</p>
+    <div class="explorer-row">
+      <button class="explorer-card" data-jump="1"><span class="num">01</span><span class="ename">TechSoup</span><span class="edesc">Submission enters</span></button>
+      <button class="explorer-card" data-jump="2"><span class="num">02</span><span class="ename">HubSpot</span><span class="edesc">CRM record</span></button>
+      <button class="explorer-card" data-jump="3"><span class="num">03</span><span class="ename">Zapier</span><span class="edesc">Connection layer</span></button>
+      <button class="explorer-card" data-jump="4"><span class="num">04</span><span class="ename">HoneyBook</span><span class="edesc">Downstream record</span></button>
+      <button class="explorer-card" data-jump="5"><span class="num">05</span><span class="ename">Existing automation</span><span class="edesc">Existing process continues</span></button>
+    </div>
+
+    <h3 style="margin-top:56px; font-size:20px;">Decision points inside the workflow</h3>
+    <p class="max-w">Not every submission follows exactly the same internal path. These are the two decisions that matter most — both still need a confirmed business rule.</p>
+    <div class="scenario-row">
+      <div class="scenario-card">
+        <h4>Existing contact?</h4>
+        <p>Contact duplication and project duplication are separate decisions — finding an existing contact shouldn't automatically stop the submission.</p>
+        <button class="btn secondary" data-scenario="contact">Test existing-contact scenario</button>
+        <div class="scenario-reveal" id="scenario-contact">
+          <p>TechSoup submission → HubSpot → <strong>existing contact found</strong> → decision → configured business rule → continue.</p>
+          <p style="margin-top:6px;"><span class="badge toconfirm">To confirm</span> Should a repeat submission create a new project, update the existing one, or something else?</p>
+        </div>
+      </div>
+      <div class="scenario-card">
+        <h4>Which program?</h4>
+        <p>The system needs to tell the Bootcamp and the Playbook apart downstream.</p>
+        <button class="btn secondary" data-scenario="program">Test program-routing scenario</button>
+        <div class="scenario-reveal" id="scenario-program">
+          <p>Submission → program identified → <strong>Bootcamp</strong> or <strong>Playbook</strong> → configured downstream handling.</p>
+          <p style="margin-top:6px;"><span class="badge toconfirm">To confirm</span> Whether HoneyBook uses a tag, a project type, or another field to tell them apart.</p>
+        </div>
+      </div>
+      <div class="scenario-card">
+        <h4>Something's missing</h4>
+        <p>A lean system shouldn't silently create an incomplete record.</p>
+        <button class="btn secondary" data-scenario="error">View exception scenario</button>
+        <div class="scenario-reveal" id="scenario-error">
+          <p>TechSoup → HubSpot → Zapier → <span style="color:var(--amber); font-weight:700;">⚠ required information missing</span></p>
+          <p style="margin-top:6px;"><span class="sim-readystatus" style="color:var(--amber);">STATUS: ATTENTION REQUIRED</span></p>
+          <p style="margin-top:6px;">The initial build relies on Zapier's task history and error notifications, with the team reviewing flagged submissions — not a separate monitoring platform.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= HOW IT WORKS ================= -->
+<section id="workflows">
+  <div class="wrap">
+    <div class="kicker">Section 4 · Data, mapping &amp; decision scenarios</div>
+    <h2 class="title">Following one submission through the system</h2>
+    <p class="lede">Here's the same architecture, seen through the eyes of a single nonprofit. Watch how one record travels through each system without anyone re-typing it.</p>
+
+    <div class="dataflow-track">
+      <div class="dataflow-record">
+        <span><b>Name</b>Jane Smith</span>
+        <span><b>Email</b>jane@example.org</span>
+        <span><b>Phone</b>555-123-4567</span>
+        <span><b>Organization</b>Green Future Foundation</span>
+        <span><b>Program</b>Grant Funding Playbook</span>
+      </div>
+      <div class="dataflow-steps" id="dataflowSteps">
+        <div class="dataflow-step" data-step="0">
+          <h5>TechSoup</h5>
+          <span class="lbl">Input</span><p>Jane submits the intake form</p>
+          <span class="lbl">Output</span><p>Name, email, phone, organization, program</p>
+        </div>
+        <div class="dataflow-step" data-step="1">
+          <h5>HubSpot</h5>
+          <span class="lbl">Process</span><p>Create or update the contact record</p>
+          <span class="lbl">Output</span><p>A structured CRM record</p>
+        </div>
+        <div class="dataflow-step" data-step="2">
+          <h5>Zapier</h5>
+          <span class="lbl">Process</span><p>Find any existing record; prepare required fields</p>
+          <span class="lbl">Output</span><p>A clean HoneyBook payload</p>
+        </div>
+        <div class="dataflow-step" data-step="3">
+          <h5>HoneyBook</h5>
+          <span class="lbl">Process</span><p>Create or update the client/project record</p>
+          <span class="lbl">Output</span><p>Existing automation can begin</p>
+        </div>
+      </div>
+      <div class="dataflow-controls">
+        <button class="btn" id="dataflowPlay">Play the data flow</button>
+      </div>
+    </div>
+
+    <!-- before/after -->
+    <div class="toggle-wrap">
+      <div class="toggle-group">
+        <button class="toggle-btn active" data-panel="before">Before</button>
+        <button class="toggle-btn" data-panel="after">After</button>
+      </div>
+    </div>
+    <div class="compare-panel active" id="panel-before">
+      <p style="text-align:center;">Nonprofit → TechSoup → information received → staff reviews → manual copy/paste → HoneyBook → automation</p>
+      <ul class="compare-list before" style="max-width:400px;margin:16px auto 0;">
+        <li>Manual handoff</li>
+        <li>Copy and paste between systems</li>
+        <li>More opportunities for error</li>
+        <li>Requires staff time on every submission</li>
+      </ul>
+    </div>
+    <div class="compare-panel" id="panel-after">
+      <p style="text-align:center;">Nonprofit → TechSoup → HubSpot → Zapier → HoneyBook → automation</p>
+      <ul class="compare-list after" style="max-width:400px;margin:16px auto 0;">
+        <li>Automated handoff</li>
+        <li>Structured, consistent data</li>
+        <li>Reduces manual handoff and duplicate-entry risk</li>
+        <li>Existing HoneyBook process fully preserved</li>
+      </ul>
+    </div>
+
+    <!-- workflow tabs -->
+    <div class="tabs" id="workflowTabs">
+      <button class="tab-btn active" data-tab="w1">New submission</button>
+      <button class="tab-btn" data-tab="w2">Existing contact</button>
+      <button class="tab-btn" data-tab="w3">Which program?</button>
+      <button class="tab-btn" data-tab="w4">Duplicate protection</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-w1">
+      <h4 style="font-size:16px;">Workflow A — a new TechSoup submission</h4>
+      <div class="ipo-row">
+        <div class="ipo-card"><h4>1. Submit</h4><div class="ipo-stage"><span class="lbl">Input</span><ul><li>Nonprofit completes intake</li></ul></div><div class="ipo-stage"><span class="lbl">Output</span><ul><li>Submission received</li></ul></div></div>
+        <div class="ipo-card"><h4>2. HubSpot</h4><div class="ipo-stage"><span class="lbl">Process</span><ul><li>Create/update contact record</li></ul></div><div class="ipo-stage"><span class="lbl">Output</span><ul><li>CRM record</li></ul></div></div>
+        <div class="ipo-card"><h4>3. Zapier</h4><div class="ipo-stage"><span class="lbl">Process</span><ul><li>Trigger the integration</li></ul></div><div class="ipo-stage"><span class="lbl">Output</span><ul><li>Validated data, ready for HoneyBook</li></ul></div></div>
+        <div class="ipo-card"><h4>4. HoneyBook</h4><div class="ipo-stage"><span class="lbl">Process</span><ul><li>Create/update the record</li></ul></div><div class="ipo-stage"><span class="lbl">Output</span><ul><li>HoneyBook record</li></ul></div></div>
+        <div class="ipo-card"><h4>5. Existing automation</h4><div class="ipo-stage"><span class="lbl">Process</span><ul><li>Runs as it does today</li></ul></div><div class="ipo-stage"><span class="lbl">Output</span><ul><li>Normal downstream process</li></ul></div></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-w2">
+      <h4 style="font-size:16px;">What happens if the nonprofit already exists?</h4>
+      <p style="max-width:60ch;">We don't want every submission to create another copy of the same person. Email is the likely matching identifier, but the exact matching logic still needs to be confirmed against the real accounts. <span class="badge toconfirm">To confirm</span></p>
+      <div class="decision-tree">
+        <div class="decision-q">Does the contact already exist?</div>
+        <div class="decision-choices">
+          <button class="btn" data-branch="yes">Yes</button>
+          <button class="btn secondary" data-branch="no">No</button>
+        </div>
+        <div class="decision-branch" id="branch-yes"><p>Use the existing contact record where the platform supports it, and continue with the required project or process — finding an existing contact doesn't automatically mean the workflow stops.</p></div>
+        <div class="decision-branch" id="branch-no"><p>Create the required new contact record, then continue with the same downstream steps.</p></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-w3">
+      <h4 style="font-size:16px;">Telling the Playbook apart from the Bootcamp</h4>
+      <p style="max-width:60ch;">The system needs to know whether a submission is for the <strong>Grant Funding Playbook &amp; Toolkit</strong> or the <strong>Live Grant Preparation Bootcamp</strong>. Rather than guess at how HoneyBook should label that, the build will use whatever identifier — a field, a tag, or a project type — is cleanest once the actual HoneyBook setup is confirmed. <span class="badge toconfirm">To confirm</span></p>
+      <div class="hero-flow" style="margin-top:18px;">
+        <div class="hero-node"><strong>Submission</strong></div><div class="hero-arrow">→</div>
+        <div class="hero-node"><strong>Program field</strong></div><div class="hero-arrow">→</div>
+        <div class="hero-node"><strong>HubSpot → Zapier</strong></div><div class="hero-arrow">→</div>
+        <div class="hero-node"><strong>Correct HoneyBook workflow</strong></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-w4">
+      <h4 style="font-size:16px;">Avoiding duplicate records</h4>
+      <p style="max-width:60ch;">Contact duplication and project duplication are two different problems. A returning nonprofit might genuinely have a new inquiry. What should happen for a repeat submission — a new project, an update to the existing one, or something else — is a business decision Remy's team needs to make. <span class="badge toconfirm">To confirm</span></p>
+      <div class="split" style="margin-top:18px;">
+        <div class="split-box no"><h4>New submission</h4><ul><li>Create the required contact</li><li>Continue as normal</li></ul></div>
+        <div class="split-box yes"><h4>Contact already exists</h4><ul><li>Use the existing record where appropriate</li><li>Avoid an unnecessary duplicate contact</li><li>Continue with the required project/process</li></ul></div>
+      </div>
+    </div>
+
+    <!-- data mapping -->
+    <h3 style="margin-top:56px; font-size:20px;">Data mapping</h3>
+    <p class="max-w">We recommend mapping only the information the downstream process actually needs into dedicated fields — not everything HubSpot happens to collect.</p>
+    <table class="mapping">
+      <thead><tr><th>Category</th><th>Field</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td rowspan="7">Core information</td><td>First name</td><td><span class="badge proposed">Proposed</span></td></tr>
+        <tr><td>Last name</td><td><span class="badge proposed">Proposed</span></td></tr>
+        <tr><td>Email</td><td><span class="badge proposed">Proposed</span></td></tr>
+        <tr><td>Phone</td><td><span class="badge proposed">Proposed</span></td></tr>
+        <tr><td>Organization</td><td><span class="badge proposed">Proposed</span></td></tr>
+        <tr><td>Program / service</td><td><span class="badge proposed">Proposed</span></td></tr>
+        <tr><td>Source (TechSoup)</td><td><span class="badge proposed">Proposed</span></td></tr>
+        <tr><td rowspan="3">Additional information</td><td>Other form responses</td><td><span class="badge toconfirm">To confirm</span></td></tr>
+        <tr><td>Organization details (website, location)</td><td><span class="badge toconfirm">To confirm</span></td></tr>
+        <tr><td>Additional nonprofit context</td><td><span class="badge toconfirm">To confirm</span></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:13px; margin-top:10px;">Where HoneyBook's supported fields are limited, remaining information can be preserved in an appropriate details field — subject to confirming what HoneyBook actually supports.</p>
+  </div>
+</section>
+
+<!-- ================= WHY THIS DESIGN ================= -->
+<section id="reasoning">
+  <div class="wrap">
+    <div class="kicker">Section 5 · Why this design</div>
+    <h2 class="title">Every decision has a reason</h2>
+
+    <div class="grid-cards">
+      <div class="reason-card"><span class="k">Decision</span><h4>Less building</h4><p>Reuse the systems already in place rather than introduce new ones.</p></div>
+      <div class="reason-card"><span class="k">Decision</span><h4>Lower maintenance</h4><p>Fewer custom components means fewer things that can break.</p></div>
+      <div class="reason-card"><span class="k">Decision</span><h4>Lower cost</h4><p>Avoid unnecessary platforms and custom infrastructure.</p></div>
+      <div class="reason-card"><span class="k">Decision</span><h4>Preserve the automation</h4><p>The HoneyBook workflow that already works stays intact.</p></div>
+      <div class="reason-card"><span class="k">Decision</span><h4>Easier handover</h4><p>A future team member or engineer can understand the architecture quickly.</p></div>
+    </div>
+
+    <h3 style="margin-top:56px; font-size:20px;">What we are — and aren't — building</h3>
+    <div class="split">
+      <div class="split-box no">
+        <h4>Not building</h4>
+        <ul>
+          <li>A new CRM</li>
+          <li>A custom database</li>
+          <li>A custom frontend</li>
+          <li>A new automation platform</li>
+          <li>Complex middleware</li>
+          <li>A rebuilt HoneyBook automation</li>
+          <li>A duplicate intake form, unless required</li>
+        </ul>
+      </div>
+      <div class="split-box yes">
+        <h4>Building</h4>
+        <ul>
+          <li>A clean intake handoff</li>
+          <li>A HubSpot connection</li>
+          <li>Zapier automation</li>
+          <li>Required data mapping</li>
+          <li>Duplicate-aware logic</li>
+          <li>The HoneyBook handoff</li>
+          <li>Testing and documentation</li>
+        </ul>
+      </div>
+    </div>
+
+    <div style="margin-top:56px;">
+      <h3 style="font-size:20px;">Cost and maintenance philosophy</h3>
+      <p class="max-w">The architecture is designed around the tools Remy's already uses, to minimize new subscriptions, custom infrastructure, and ongoing maintenance. The final recurring cost depends on the existing HubSpot, Zapier, and HoneyBook plans and the exact steps required — that will be verified before production deployment, rather than promised in advance.</p>
+    </div>
+
+    <div style="margin-top:40px;">
+      <h3 style="font-size:20px;">Reliability, kept simple</h3>
+      <div class="hero-flow">
+        <div class="hero-node"><strong>Submission</strong></div><div class="hero-arrow">→</div>
+        <div class="hero-node"><strong>HubSpot</strong></div><div class="hero-arrow">→</div>
+        <div class="hero-node"><strong>Zapier</strong></div><div class="hero-arrow">→</div>
+        <div class="hero-node"><strong>HoneyBook</strong></div><div class="hero-arrow">→</div>
+        <div class="hero-node"><strong>Existing automation</strong></div>
+      </div>
+      <p class="max-w" style="margin-top:16px;">If a step fails, Zapier records the failed task and the account's configured notifications alert the team, who can investigate and retry through Zapier's normal controls. For this phase, native platform monitoring is preferred over building a separate error-management system.</p>
+    </div>
+
+    <div style="margin-top:40px;">
+      <h3 style="font-size:20px;">Security &amp; data governance</h3>
+      <p class="max-w">This integration moves nonprofit and contact information between organizations. Before anything goes live, both sides should confirm: authorization to connect TechSoup/HubSpot to Zapier, exactly what information may be transferred, which HoneyBook data is necessary, account access and permissions, and any retention or privacy requirements. <span class="badge toconfirm">To confirm</span> — this document makes no legal claims; data-sharing permissions must be confirmed by the organizations before production use.</p>
+    </div>
+
+    <div style="margin-top:40px;">
+      <h3 style="font-size:20px;">Technical decisions</h3>
+      <table class="decisions">
+        <tr><td class="decision">Use the existing intake where possible</td><td class="why">Avoids an unnecessary form rebuild</td></tr>
+        <tr><td class="decision">Use HubSpot as the CRM handoff point, if supported by the existing setup</td><td class="why">Structured contact data may already exist there</td></tr>
+        <tr><td class="decision">Use Zapier as the connector where its actions support the required steps</td><td class="why">Lower development and maintenance burden than custom integration code</td></tr>
+        <tr><td class="decision">Preserve the HoneyBook automation</td><td class="why">The existing downstream process already works</td></tr>
+        <tr><td class="decision">Map only the minimum required fields</td><td class="why">Reduces complexity and integration failure points</td></tr>
+        <tr><td class="decision">Use duplicate-aware logic</td><td class="why">Protects the quality of the CRM data</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CONFIRMATIONS ================= -->
+<section id="confirmations">
+  <div class="wrap">
+    <div class="kicker">Section 6 · What needs confirming</div>
+    <h2 class="title">Final confirmations before implementation</h2>
+    <p class="lede">These are the specific points that only Remy's or TechSoup can answer — nothing here is guesswork we could have looked up ourselves.</p>
+    <div class="qlist">
+      <div class="qitem"><span class="num">1</span><p>What is the exact current TechSoup intake/form setup?</p></div>
+      <div class="qitem"><span class="num">2</span><p>Does the current TechSoup submission already create or update a HubSpot contact, and which HubSpot portal or form is involved?</p></div>
+      <div class="qitem"><span class="num">3</span><p>Which exact fields from the TechSoup submission does Remy's downstream process actually require?</p></div>
+      <div class="qitem"><span class="num">4</span><p>How should a submission be identified as belonging to the Bootcamp versus the Playbook?</p></div>
+      <div class="qitem"><span class="num">5</span><p>What should happen when the same person or organization submits again — a new project, an update to the existing one, or something else?</p></div>
+      <div class="qitem"><span class="num">6</span><p>What exact action currently starts the existing HoneyBook automation, and what information must be present for it to run correctly?</p></div>
+      <div class="qitem"><span class="num">7</span><p>Is TechSoup authorized to allow the relevant HubSpot information to be connected to Zapier and passed into Remy's HoneyBook environment?</p></div>
+      <div class="qitem"><span class="num">8</span><p>Are there any TechSoup data or privacy restrictions on what information can leave the TechSoup/HubSpot environment?</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ROADMAP ================= -->
+<section id="roadmap">
+  <div class="wrap">
+    <div class="kicker">Section 7 · Getting there</div>
+    <h2 class="title">Implementation plan</h2>
+
+    <div class="phase-row">
+      <div class="phase">
+        <div class="pname">Phase 1</div>
+        <div class="phase-grid"><div><span class="lbl">Input</span><p>Open questions above</p></div><div><span class="lbl">Work</span><p>Confirm the current architecture with TechSoup and Remy's</p></div><div><span class="lbl">Output</span><p>A verified starting point</p></div></div>
+      </div>
+      <div class="phase">
+        <div class="pname">Phase 2</div>
+        <div class="phase-grid"><div><span class="lbl">Input</span><p>Verified architecture</p></div><div><span class="lbl">Work</span><p>Map the required fields</p></div><div><span class="lbl">Output</span><p>A confirmed field map</p></div></div>
+      </div>
+      <div class="phase">
+        <div class="pname">Phase 3</div>
+        <div class="phase-grid"><div><span class="lbl">Input</span><p>Field map</p></div><div><span class="lbl">Work</span><p>Configure the HubSpot/Zapier connection</p></div><div><span class="lbl">Output</span><p>A working automated handoff</p></div></div>
+      </div>
+      <div class="phase">
+        <div class="pname">Phase 4</div>
+        <div class="phase-grid"><div><span class="lbl">Input</span><p>Working handoff</p></div><div><span class="lbl">Work</span><p>Connect to HoneyBook without disturbing the existing automation</p></div><div><span class="lbl">Output</span><p>End-to-end flow</p></div></div>
+      </div>
+      <div class="phase">
+        <div class="pname">Phase 5</div>
+        <div class="phase-grid"><div><span class="lbl">Input</span><p>End-to-end flow</p></div><div><span class="lbl">Work</span><p>Test new, existing, duplicate, and failure scenarios</p></div><div><span class="lbl">Output</span><p>A validated system</p></div></div>
+      </div>
+      <div class="phase">
+        <div class="pname">Phase 6</div>
+        <div class="phase-grid"><div><span class="lbl">Input</span><p>Validated system</p></div><div><span class="lbl">Work</span><p>Document and hand over</p></div><div><span class="lbl">Output</span><p>A maintainable, understood system</p></div></div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:56px; font-size:20px;">Testing plan</h3>
+    <div class="test-grid">
+      <div class="test-card"><h5>New nonprofit</h5><span class="lbl">Expected</span><p>Correct record and downstream process</p></div>
+      <div class="test-card"><h5>Existing nonprofit</h5><span class="lbl">Expected</span><p>Correct existing-contact handling</p></div>
+      <div class="test-card"><h5>Repeat submission</h5><span class="lbl">Expected</span><p>No unnecessary duplicate, per the agreed business rule</p></div>
+      <div class="test-card"><h5>Different program</h5><span class="lbl">Expected</span><p>Correct program identification</p></div>
+      <div class="test-card"><h5>Missing optional info</h5><span class="lbl">Expected</span><p>Workflow continues safely where possible</p></div>
+      <div class="test-card"><h5>A step fails</h5><span class="lbl">Expected</span><p>The error is visible and recoverable through normal platform controls</p></div>
+    </div>
+
+    <div class="final-flow">
+      <div class="final-node dim">Nonprofit submits once</div><div class="final-arrow">↓</div>
+      <div class="final-node dim">TechSoup</div><div class="final-arrow">↓</div>
+      <div class="final-node dim">HubSpot</div><div class="final-arrow">↓</div>
+      <div class="final-node dim">Zapier</div><div class="final-arrow">↓</div>
+      <div class="final-node dim">HoneyBook</div><div class="final-arrow">↓</div>
+      <div class="final-node">Existing automation continues</div>
+    </div>
+    <p class="final-statement">One submission.<br>One clean handoff.<br>Existing automation preserved.</p>
+    <p style="text-align:center; font-size:12.5px; color:var(--ink-faint); max-width:48ch; margin:14px auto 0;">This doesn't mean zero manual work forever — exceptions will still need a human. It means routine submissions no longer need one.</p>
+  </div>
+</section>
+
+<!-- ================= GLOSSARY ================= -->
+<section id="glossary">
+  <div class="wrap">
+    <div class="kicker">Reference</div>
+    <h2 class="title">Plain-language glossary</h2>
+    <dl class="glossary-grid">
+      <div class="gitem"><dt>CRM</dt><dd>Short for "customer relationship management" — the system that stores contact and organization records, in this case HubSpot.</dd></div>
+      <div class="gitem"><dt>Zap</dt><dd>A single automated recipe in Zapier: when this happens, do that.</dd></div>
+      <div class="gitem"><dt>Trigger</dt><dd>The event that starts a Zap or a HoneyBook automation — for example, a new contact being created.</dd></div>
+      <div class="gitem"><dt>Action</dt><dd>What happens once a trigger fires — for example, creating a record in HoneyBook.</dd></div>
+      <div class="gitem"><dt>API</dt><dd>A defined way for two systems to exchange information automatically, without a person copying it by hand.</dd></div>
+      <div class="gitem"><dt>Webhook</dt><dd>A message one system sends automatically to another the moment something happens.</dd></div>
+      <div class="gitem"><dt>Automation</dt><dd>A sequence of steps a system runs on its own once triggered — no manual action required.</dd></div>
+      <div class="gitem"><dt>Duplicate</dt><dd>The same person or organization accidentally recorded more than once.</dd></div>
+      <div class="gitem"><dt>Field mapping</dt><dd>Deciding which piece of information in one system corresponds to which field in another.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<footer>
+  <p>Prepared as a working proposal. Items marked "to confirm" require a direct answer from Remy's Consulting or TechSoup before implementation begins.</p>
+</footer>
+
+<script>
+(function(){
+  // progress bar
+  var progress = document.getElementById('progress');
+  function updateProgress(){
+    var h = document.documentElement;
+    var scrolled = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
+    progress.style.width = (scrolled || 0) + '%';
+  }
+  document.addEventListener('scroll', updateProgress, {passive:true});
+  updateProgress();
+
+  // nav toggle (mobile)
+  var navToggle = document.getElementById('navToggle');
+  var navLinks = document.getElementById('navLinks');
+  navToggle.addEventListener('click', function(){
+    var open = navLinks.classList.toggle('open');
+    navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  // nav scroll + scrollspy
+  var navButtons = Array.prototype.slice.call(document.querySelectorAll('nav.links button'));
+  navButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var el = document.getElementById(btn.getAttribute('data-target'));
+      if(el){ el.scrollIntoView({behavior:'smooth', block:'start'}); }
+      navLinks.classList.remove('open');
+      navToggle.setAttribute('aria-expanded','false');
+    });
+  });
+  var sections = navButtons.map(function(btn){ return document.getElementById(btn.getAttribute('data-target')); }).filter(Boolean);
+  if('IntersectionObserver' in window){
+    var obs = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){
+          var id = entry.target.id;
+          navButtons.forEach(function(btn){
+            btn.classList.toggle('active', btn.getAttribute('data-target') === id);
+          });
+        }
+      });
+    }, {rootMargin:'-40% 0px -55% 0px'});
+    sections.forEach(function(s){ obs.observe(s); });
+  }
+
+  // architecture accordion
+  document.querySelectorAll('.arch-node').forEach(function(node){
+    node.addEventListener('click', function(){
+      var isOpen = node.classList.contains('open');
+      document.querySelectorAll('.arch-node').forEach(function(n){ n.classList.remove('open'); n.setAttribute('aria-expanded','false'); });
+      if(!isOpen){ node.classList.add('open'); node.setAttribute('aria-expanded','true'); }
+    });
+  });
+
+  // before/after toggle
+  document.querySelectorAll('.toggle-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.toggle-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      var target = btn.getAttribute('data-panel');
+      document.querySelectorAll('.compare-panel').forEach(function(p){
+        p.classList.toggle('active', p.id === 'panel-' + target);
+      });
+    });
+  });
+
+  // workflow tabs
+  document.querySelectorAll('.tab-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      var target = btn.getAttribute('data-tab');
+      document.querySelectorAll('.tab-panel').forEach(function(p){
+        p.classList.toggle('active', p.id === 'tab-' + target);
+      });
+    });
+  });
+
+  // decision tree
+  document.querySelectorAll('[data-branch]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var key = btn.getAttribute('data-branch');
+      document.getElementById('branch-yes').classList.toggle('show', key === 'yes');
+      document.getElementById('branch-no').classList.toggle('show', key === 'no');
+    });
+  });
+
+  // data flow animation
+  var steps = Array.prototype.slice.call(document.querySelectorAll('.dataflow-step'));
+  var playBtn = document.getElementById('dataflowPlay');
+  var timer = null;
+  playBtn.addEventListener('click', function(){
+    if(timer) clearInterval(timer);
+    steps.forEach(function(s){ s.classList.remove('lit'); });
+    var i = 0;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(reduce){
+      steps.forEach(function(s){ s.classList.add('lit'); });
+      return;
+    }
+    function tick(){
+      if(i > 0) steps[i-1] && steps[i-1].classList.add('lit');
+      if(i < steps.length){ steps[i].classList.add('lit'); i++; }
+      else { clearInterval(timer); }
+    }
+    tick();
+    timer = setInterval(tick, 650);
+  });
+})();
+
+// ---- live workflow simulator ----
+(function(){
+  var TOTAL = 6;
+  var STEP_INFO = [
+    { name:'Submission',
+      business:"The nonprofit has completed the TechSoup intake. The submission now enters the connected workflow.",
+      technical:"A new submission payload is generated at the TechSoup intake and queued for downstream processing." },
+    { name:'TechSoup',
+      business:"Submission received. TechSoup captures the nonprofit's information as the front door of the partnership.",
+      technical:"TechSoup records the submission as the system of record; the exact hand-off mechanism to HubSpot is still to be confirmed." },
+    { name:'HubSpot',
+      business:"HubSpot is processing the submission. It checks the incoming information and matches it to the right contact record.",
+      technical:"The configured HubSpot event fires; the submission is matched against existing contacts and stored as a structured record." },
+    { name:'Zapier',
+      business:"Zapier is connecting the systems. It takes the relevant HubSpot information and passes it to HoneyBook using the agreed rules.",
+      technical:"Zapier's trigger fires on the configured HubSpot event, retrieves the required fields, applies duplicate-aware logic, and maps the payload for HoneyBook." },
+    { name:'HoneyBook',
+      business:"HoneyBook is receiving the information. It uses it to create or update the appropriate client/project record.",
+      technical:"HoneyBook receives the mapped payload and creates or updates the record needed to trigger the existing automation." },
+    { name:'Existing automation',
+      business:"Existing HoneyBook automation takes over. The integration doesn't rebuild this process — it simply feeds it.",
+      technical:"The existing automation's configured trigger fires on the updated record and executes unchanged: tagging, emails, resources, and follow-up." }
+  ];
+
+  var stage = document.getElementById('simStage');
+  var railFill = document.getElementById('simRailFill');
+  var marker = document.getElementById('simMarker');
+  var progressFill = document.getElementById('simProgressFill');
+  var progressLabels = document.querySelectorAll('#simProgressLabels span');
+  var stepCounter = document.getElementById('simStepCounter');
+  var whHeading = document.getElementById('whHeading');
+  var whBody = document.getElementById('whBody');
+  var runBtn = document.getElementById('simRun');
+  var pauseBtn = document.getElementById('simPause');
+  var replayBtn = document.getElementById('simReplay');
+
+  if(!stage) return; // section not present, skip safely
+
+  var nodes = [];
+  for(var i=0;i<TOTAL;i++){ nodes.push(document.getElementById('node-'+i)); }
+
+  var currentStep = -1;
+  var playing = false;
+  var timer = null;
+  var view = 'business';
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function geometry(){
+    var stageTop = stage.getBoundingClientRect().top;
+    return nodes.map(function(n){
+      var r = n.getBoundingClientRect();
+      return (r.top - stageTop) + (r.height/2) - 7; // 7 = half marker height
+    });
+  }
+
+  function renderMarker(step){
+    if(step < 0){ marker.classList.remove('active'); railFill.style.height = '0px'; return; }
+    var pos = geometry();
+    marker.classList.add('active');
+    marker.style.top = pos[step] + 'px';
+    railFill.style.height = (pos[step] + 7) + 'px';
+  }
+
+  function setStatuses(step){
+    nodes.forEach(function(n, i){
+      n.classList.remove('waiting','processing','complete');
+      var statusEl = n.querySelector('.sim-status');
+      if(i < step){ n.classList.add('complete'); statusEl.textContent = 'COMPLETE'; }
+      else if(i === step){ n.classList.add('processing'); statusEl.textContent = 'PROCESSING'; }
+      else { n.classList.add('waiting'); statusEl.textContent = 'WAITING'; }
+    });
+  }
+
+  function updateWhatsHappening(step){
+    var info = STEP_INFO[step];
+    whHeading.textContent = info.name;
+    whBody.textContent = info[view];
+  }
+
+  function updateProgress(step){
+    progressFill.style.width = ((step/(TOTAL-1))*100) + '%';
+    progressLabels.forEach(function(el){
+      var s = parseInt(el.getAttribute('data-step'),10);
+      el.classList.toggle('active', s === step);
+      el.classList.toggle('done', s < step);
+    });
+  }
+
+  function updateStepCounter(step){
+    stepCounter.textContent = 'Step ' + (step+1) + ' of ' + TOTAL + ' — ' + STEP_INFO[step].name;
+  }
+
+  function setStep(step){
+    step = Math.max(0, Math.min(TOTAL-1, step));
+    currentStep = step;
+    setStatuses(step);
+    updateWhatsHappening(step);
+    updateProgress(step);
+    updateStepCounter(step);
+    renderMarker(step);
+    // recompute after the detail panel finishes expanding, since node heights change
+    setTimeout(function(){ renderMarker(currentStep); }, 320);
+  }
+
+  function resetAll(){
+    clearInterval(timer);
+    timer = null;
+    playing = false;
+    currentStep = -1;
+    nodes.forEach(function(n){
+      n.classList.remove('processing','complete');
+      n.classList.add('waiting');
+      n.querySelector('.sim-status').textContent = 'WAITING';
+    });
+    progressFill.style.width = '0%';
+    progressLabels.forEach(function(el){ el.classList.remove('active','done'); });
+    stepCounter.textContent = 'Not started — press Run workflow';
+    whHeading.textContent = 'Ready to start';
+    whBody.textContent = 'Press "Run workflow" to follow Sarah Johnson\'s submission from TechSoup through to HoneyBook\'s existing automation.';
+    renderMarker(-1);
+    runBtn.textContent = '▶ Run workflow';
+    runBtn.disabled = false;
+    pauseBtn.disabled = true;
+  }
+
+  function startPlaying(){
+    if(currentStep >= TOTAL-1){ resetAll(); }
+    playing = true;
+    runBtn.disabled = true;
+    pauseBtn.disabled = false;
+    var startAt = currentStep < 0 ? 0 : currentStep;
+    setStep(startAt);
+    var delay = reduceMotion ? 400 : 1800;
+    timer = setInterval(function(){
+      if(currentStep + 1 >= TOTAL){
+        clearInterval(timer); timer = null; playing = false;
+        runBtn.disabled = false; runBtn.textContent = '▶ Run again';
+        pauseBtn.disabled = true;
+        return;
+      }
+      setStep(currentStep + 1);
+    }, delay);
+  }
+
+  function pausePlaying(){
+    clearInterval(timer); timer = null; playing = false;
+    runBtn.disabled = false; runBtn.textContent = '▶ Resume';
+    pauseBtn.disabled = true;
+  }
+
+  runBtn.addEventListener('click', startPlaying);
+  pauseBtn.addEventListener('click', pausePlaying);
+  replayBtn.addEventListener('click', function(){ resetAll(); startPlaying(); });
+
+  // view toggle
+  document.querySelectorAll('#simViewToggle .toggle-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#simViewToggle .toggle-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      view = btn.getAttribute('data-view');
+      if(currentStep >= 0){ updateWhatsHappening(currentStep); }
+    });
+  });
+
+  // explorer cards
+  document.querySelectorAll('.explorer-card').forEach(function(card){
+    card.addEventListener('click', function(){
+      pausePlaying();
+      runBtn.disabled = false; runBtn.textContent = '▶ Run workflow';
+      setStep(parseInt(card.getAttribute('data-jump'),10));
+      stage.scrollIntoView({behavior:'smooth', block:'center'});
+    });
+  });
+
+  // scenario reveals
+  document.querySelectorAll('[data-scenario]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var panel = document.getElementById('scenario-' + btn.getAttribute('data-scenario'));
+      panel.classList.toggle('show');
+    });
+  });
+
+  window.addEventListener('resize', function(){ if(currentStep >= 0) renderMarker(currentStep); });
+
+  resetAll();
+})();
+</script>
+</body>
+</html>
